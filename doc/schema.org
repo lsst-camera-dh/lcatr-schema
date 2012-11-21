@@ -1,339 +1,146 @@
-#+TITLE:     LSST CCD Acceptance Testing File Schema
-#+AUTHOR:    Brett Viren
-#+EMAIL:     bv@bnl.gov
-#+DATE:      \today
-
-#+LATEX_HEADER: \usepackage{hyperref}
-#+LATEX_HEADER: \hypersetup{
-#+LATEX_HEADER:   hyperindex=true,
-#+LATEX_HEADER:   plainpages=false,
-#+LATEX_HEADER:   colorlinks=true,
-#+LATEX_HEADER:   linkcolor=black
-#+LATEX_HEADER: }
-
-#+DESCRIPTION:
-#+KEYWORDS:
-#+LANGUAGE:  en
-#+OPTIONS:   H:3 num:t toc:t \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
-#+OPTIONS:   TeX:t LaTeX:t skip:nil d:nil todo:t pri:nil tags:not-in-toc
-#+INFOJS_OPT: view:nil toc:nil ltoc:t mouse:underline buttons:0 path:http://orgmode.org/org-info.js
-#+EXPORT_SELECT_TAGS: export
-#+EXPORT_EXCLUDE_TAGS: noexport
-#+LINK_UP:
-#+LINK_HOME:
-#+XSLT:
-
-## http://orgmode.org/manual/Macro-replacement.html
-## handle images:
-## Usage: {{{limg(label,filebase,caption)}}}
-
-#+MACRO: himg #+HTML: <a name="$1"><center><img width="100%" src="$2.svg" alt="$3"/> $3</center></a>
-#+MACRO: limg #+LATEX: \begin{figure}\label{$1}\includegraphics[width=\textwidth]{$2.pdf}\caption{$3}\end{figure}
-
-#+MACRO: mimg #+HTML: <a name="$1"><center><img width="100%" src="$2.svg" alt="$3"/> $3</center></a>\n#+LATEX: \begin{figure}\label{$1}\includegraphics[width=\textwidth]{$2.pdf}\caption{$3}\end{figure}
-
-## http://lists.netisland.net/archives/plug/plug-2011-11/msg00088.html
-#+LaTeX_HEADER:\usepackage[margin=0.75in]{geometry}
-
-
-#+BEGIN_ABSTRACT
-The format for the files to exchange results from LSST CCD acceptance
-testing stations to the back-end database system is described.  Python
-modules for producing and validating files for compliance is
-presented.  (FIXME: this is still a draft in progress.)
-#+END_ABSTRACT
-
-
-* Overview
-
-The LSST CCD acceptance tests consist of several stations and analyses
-(collectively "tests") each evaluating some aspect of the CCD-level
-hardware.  These tests run on a heterogeneous set of platforms.
-Results of these tests are files on disk which can be separated into
-three forms.  First is a single /metadata/ file for each test result
-that describes the test and the resulting files of the other two
-types.  The second type includes one or more /results/ files from each
-test result which summarizes all the information, no more and no less,
-that should be loaded into the database.  The third type includes zero
-or more auxiliary files that will be referenced by the /metadata/ and
-/results/ files and archived along with them but not otherwise
-processed.
-
-The /metadata/ and /results/ files follow a well defined format (FITS)
-and a well defined internal organization (ie, schema).  This document
-gives a general description of this schema and some Python code that
-assists in producing and validating compliant files.  The definitive
-description of the schema is produced by this code.
-
-A choice was made in requiring these intermediate files.
-Alternatively, software could be developed for each test that uploads
-the results directly to the database.  This approach would require
-each test author to have familiarity with database access, or it would
-require a database interface to be written that supports each possible
-test platform.
-
-Instead, intermediate exchange files are produced in a format that all
-stations should be able to write.  In order to reduce complexity in
-the database ingest application, these files are required to follow a
-well defined format and schema.  It must be possible to validate these
-interchange files against their schema before ingesting to avoid
-polluting the database with wrong or inconsistent values.
-
-The FITS file format is used for these interchange files.  FITS is a
-natural choice in that it is somewhat general purpose but also
-provides specific features needed by the tests (in particular storage
-of bitmapped information).  It is also commonly used in astrophysics
-applications and well supported on the variety of test station
-platforms.
-
-{{{mimg(fig-overview,dataflow,Overview of the data handling of acceptance testing results.)}}}
-
-Figure \ref{fig-overview} shows a high-level cartoon of the handling
-of the result data from the test stations.  
-
-
-
-
-
-FIXME: A station checks out its software and records the corresponding
-commit identifier (GIT SHA1 digest hash).  Runs the test and produces
-a FITS summary file in the interchange format described here and
-potentially additional ancillary files.  The commit identifier,
-references to teh ancillary files and the summary results themselves
-are written to the FITS summary file.  When a FITS summary file is
-available an external process validates is and, if it passes, updates
-the database with the results.  If validation fails the overall
-controlling process (not shown) is notified.  Later, reports and
-additional post-test analysis can be performed by making queries to
-the database.
- 
-The rest of this document describes the file schema, that is how these
-FITS interchange files must organize their contents.
-
-* Overview of the Schema
-
-The organization and conventions for the contents of the interchange
-files are described in this section.
-
-** Hierarchy
-
-The layout of the contents is organized into a hierarchy.  This
-hierarchy can be thought of as a set of nested and ordered lists.
-
- - /result/ :: \to (/PrimaryHDU/, /FragmentHDU/, ...)
- - /PrimaryHDU/ :: \to /HDU/
- - /FragmentHDU/ :: \to /HDU/
- - /HDU/ :: \to (/header/, /payload/)
- - /payload/ :: \to either a /table/ or /data/
- - /header/ :: \to (/card/, /card/, ...)
- - /table/ :: \to (/column/, /column/, ...)
- - /data/ :: \to (t.b.d.)
- - /card/ :: \to (/name/, /typeobj/, /comment/, /description/)
- - /column/ :: \to (/name/, /typeobj/, /description/)
- - /name/ :: \to a string, 8 characters or less
- - /typeobj/ :: \to an instance of a Python class representing the type of the element
- - /comment/ :: \to a short FITS comment
- - /description/ :: \to a free form, comprehensive description of the element
-
-** Conventions
- 
-The content of each level of this hierarchy must follow certain
-conventions.  The important ones are described below.
-
-*** Header Data Unit
-
-All header data units (/PrimaryHDU/ or /FragmentHDU/) must contain a
-header unit an optional payload unit.  If there is no payload, this
-second unit is represented by Python's None object.
-
-*** Header Unit
-
-All header units must contains the following cards:
-
- - =EXTNAME= :: Standard naming mechanism for a FITS HDU, when in the
-                primary HDU it holds the canonical name for the test
-                and determines which named, secondary HDUs are
-                expected.  Test names are documented below in the
-                test-specific schema section.
- - =CHECKSUM= :: Standard FITS check sum card.
- - =DATASUM= :: Standard FITS data sum card, will be '0' if thee is no payload.
- - =SCHEMAV= :: Version of the schema used in this HDU.
-
-The header of the FITS primary HDU must contain these additional cards:
-
- - =DATE-OBS= :: The date that the test was performed in
-                 =YYYY-MM-DDTHH:MM:SS= format, UTC.
- - =COMMIT= :: The SHA1 digest hash (in hex) for the commit that
-               provides the code that produced this result.
-
-Secondary HDU headers contain any result fragment specific cards as
-detailed in the schema itself.
-
-*** Type Objects
-
-Cards and Columns must specify their type with an instance of a Python
-class.  Classes from the =numpy= module are preferred.
-
-* Schema Definition
-
-The schema is defined as a Python data structure the parallels the
-hierarchy, encodes the conventions listed above and lists the specific
-entries that each concrete element will provide.
-
-
-* Test-specific Schema
-
-Each test result file must implement the above FITS primary HDU.  In
-addition, each test must provide one or more secondary FITS HDUs.  The
-number and schema of these secondaries are specific to the result of
-each station.  Each test must follow its schema to produce a valid
-file.  The schema to apply is determined by the value of the
-=TESTNAME= card in the primary HDU.
-
-The schema of each test result is outlined below however the
-definitive descriptions are in the =lcatr.schema= Python module, also
-described below.
-
-** Gain, Noise and Cold Spots
-
-This test has the canonical name of =GainNoiseColdSpots= and provides
-four secondary HDUs with the following =EXTNAME= card value:
-
- - =ANAFILES= :: names of files used to produced these results
- - =GAINS= :: measured gains
- - =NOISE= :: measured noise
- - =COLDSPOT= :: regions identified as having unacceptable response
-
-The schema of each of these secondary HDUs is described in the
-sections below.
-
-*** =ANAFILES= HDU 
-
-The =ANAFILES= HDU holds a two-column table of file names and the SHA1
-digest of their contents.  The file names are limited to 64
-characters.  (FIXME: is this a necessary limitation?)
-
-*** =GAINS= HDU
-
-The =GAINS= HDU holds the gains of each amplifier measured with two
-methods.  Each are stored as columns in a table with one row per
-amplifier.  (FIXME: currently the column order implies amplifier
-number, should it be more explicit?)  Two methods are stored:
-=LinGain= measure by a linear fit and =MedGain= from the median.
-
-*** =NOISE= HDU
-
-The =NOISE= HDU contains measurements of the noise level of each
-amplifier measured by over scan (=OvScNois=) and standard deviation
-(=SdevNois=) and stored as columns in table, one row per amplifier.
-(FIXME: same question as above).
-
-*** =COLDSPOT= HDU
-
-The =COLDSPOT= HDU holds a table of any areas (spots) on the CCD that
-have below acceptable response.  A spot is described as an amplifier
-number, the number of pixels with low response and the x,y pixel
-number representing its center.  Each of these quantities are stored
-as a column in the table.
-
-
-* Support Code
-
-A number of Python modules exist to support producing and validating
-files that comply with this document in the =lcatr= (LSST CCD
-Acceptance Test Results) module.  Each high-level module is described:
-
-
-** Schema Representation
-
-The =lcatr.schema= module provides the definitive description of
-acceptable results files.  The description is in the form of a
-hierarchy built from Python tuples.
-
-*** Top level
-
-At top level the schema for each type of result is described by an
-ordered list of per-HDU descriptions.  The first element is for the
-FITS Primary HDU and subsequent ones are for the result-specific HDUs.
-
-#+begin_src python
-(PrimaryHDU, Station1Result1HDU, Station1Result2HDU, ...)
-#+end_src
-
-*** HDU
-
-Each HDU is described by a triple.  The first item is the canonical
-name for the HDU.  For the FITS primary HDU the name must be the
-canonical name for the result as a whole (ie, the name for the test
-station).  The second describes the FITS cards specific to the HDU's
-header unit and the third describes the data/table unit.
-
-#+begin_src python
-(HeaderDesc, TableOrDataDesc)
-#+end_src
-
-*** Header Unit
-
-The HeaderDesc is a list of CardDesc:
-
-#+begin_src python
-(Card1Desc, Card2Desc, ...)
-#+end_src
-
-Each HDU-specific FITS card is described with an ordered tuple of
-
- - name :: the name of the card as a string, 8 characters or less
- - type :: the type of the card as a Python class object
- - comment :: brief description used as a FITS comment
- - description :: longer, free-form human-oriented text describing the card for generated documentation.
-
-In addition to any HDU-specific cards, every header must contain these
-standard cards:
-
- - =EXTNAME= :: The canonical name of the HDU.  In the case of the
-                FITS primary HDU this is the canonical name for the
-                result as a whole (ie, the name of the test station).
- - =SCHEMAV= :: An integer representing what version of the schema the
-                HDU was written with.
- - =CHECKSUM= :: standard FITS checksum 
- - =DATASUM= :: standard FITS datasum ('0' when if no data/table unit)
-
-In addition, every header must have a =EXTNAME= to name the header but
-this is specified at the HDU level (see above).  There may be other
-book keeping cards placed to manage the table/data unit.  They are not
-explicitly specified in this schema.
-
-*** Table Unit
-
-Tables are defined as a list of columns.  Columns are specified with
-the following elements:
-
- - name :: name of the column
- - type :: the type of the column as a Python class object
-
-
-** FITS File Creation
-
-The =lcatr.results= module provides Python code to create compliant
-files.  Stations that use this module to produce their result files
-will guarantee that their files are acceptable for feeding to the
-back-end database.  (FIXME: t.b.d)
-
-
-** FITS File Validation
-
-The =lcatr.validation= module provides Python code to validate
-existing FITS files for compliance.  Stations that can not use
-=lcatr.results= to produce their files can use this module to validate
-that their result files will be accepted by the back-end database.
-(FIXME: t.d.b.)
-
-
-** Installation Requirements
-
- - pyfits :: Python-FITS interface
-
-
-** Example use
-
-(FIXME: t.b.d.)
+LCATR Schema
+
+* What is a schema
+
+Every LSST CCD acceptance test (or analysis) must produce some summary
+of its results so that it may later be queried.  Such queries are done
+through the LIMS database and so the summary information must be
+produced in a format suitable to loading into the database tables.
+The database requires that tables are strictly defined and that any
+modifications must be carefully enacted so as to preserve the
+usefulness of existing entries.  At the same time a simple and loose
+coupling between test software and the database is desired.
+
+This means that the developers of tests (and analysis) software are
+not free to produce result summaries in just any manner.  It is
+emphasized that this restriction is limited to the result summary
+only; the software is free to produce any manner output files (or
+other form) that are not otherwise destined for the database.  It is,
+then, only the result summary data that must follow a strict,
+well-defined format both in terms of structure and expected content.
+This expectation is formalized into what is called the result summary
+/schema/.
+
+The overall schema of a result summary is a list of parts.  Each part
+follows its own specific schema and collects together related
+information.  This part schema (from now, just "schema") is identified
+by a name and a version.  Ultimately, each part of a summary is mapped
+to a database table row.
+
+
+* Defining a schema
+
+Both (part) schema and confirming data structure are represented in
+Python as simple, flat dictionaries with the same keys.  Both are
+conceptually separated into two parts.  The first is the /schema
+identifier/ made up of items with the keys =schema_name= (value type
+is =str=) and =schema_version= (value type is =int=).  The second
+contains the /payload/.  The schema payload values hold a simple
+Python type class (one of =int=, =float= or =str=) while the data
+structure payload values hold value that are of (or can be cast to)
+their corresponding type.
+
+A data structure is conforming to a schema only if their schema
+identifiers match exactly, their set of payload keys match exactly and
+each payload value in the data structure has the same type (or can be
+cast to one) consistent with the one in the schema.
+
+** Schema Versioning
+
+The =schema_version= item of a /schema identifier/ is a simple integer
+starting at 0 for the initial version of the schema and is incremented
+by one each time a change to the schema must be made.  Old versions
+should be retained in full.
+
+Changes to schema are best minimized.  Once production data has been
+written to the database using a version of a schema significant effort
+is required to enact a change in that schema.  How such /schema
+evolution/ is handled depends on the nature of the change and is
+beyond the scope of this document.
+
+See below for example code showing how to access different versions of
+a schema.
+
+* Simple Schema Examples
+
+A very simple example is a schema which describes the average and
+spread of some distributed quantities is given in this section.  The
+schema might initially be written in Python like the following:
+
+#+BEGIN_SRC Python
+s0 = {
+  "schema_name": "average",
+  "schema_version": 0,
+  "mean": float,
+  "rms": float
+}
+#+END_SRC
+
+Later, it may become apparent that in order to correctly combine
+multiple such entries as well as produce a combined RMS that the data
+to be recorded must be modified.  In this case a new version would be
+needed that might look like:
+
+#+BEGIN_SRC Python
+s1 = {
+  "schema_name": "average",
+  "schema_version": 1,
+  "count": int,
+  "sum": float,
+  "sum2": float
+}
+#+END_SRC
+
+The version is incremented.  To migrate the database the corresponding
+table a new table would need to be defined, created and filled and the
+old table dropped.
+
+* Persisting Schema Definitions
+
+Schema can be serialized and persisted (saved to file) for later use.
+Either a single schema or a simple list of them can be saved to a
+file.  The =lcatr.schema= module provides a function to save the file.
+
+#+BEGIN_SRC Python
+from lcatr.schema import save
+lst = [s0, s1]
+save(lst, "example.schema")
+#+END_SRC
+
+These schema description files can be created in this manner or by
+hand.  They can be written either as Python source code or following
+the JSON format.  An optional third argument to =save()= can specify
+which of these two formats to write.
+
+** Schema File Loading
+
+When the =lcatr.schema= module is imported it will check for an
+environment variable =LCATR_SCHEMA_PATH= and collect all files found
+in the directories specified which have a =.schema= extension.  The
+files will be read and parsed assuming they contain a serialized JSON
+string described above.
+
+* Access a Schema Definition
+
+The =lcatr.schema= module provides the function
+=get(name,version=None)= that returns the a schema dictionary for the
+given name and version.  If version is not specified then the schema
+with the largest version number is returned.
+
+* Standard Schema
+
+Some schema are common enough to be shared to summarize multiple tests
+and analyses.  
+
+** File references
+
+As emphasized above, while the result summary must adhere to the
+strict form described in this document, a result may include any
+number of addition output in the form of files.  If these files are to
+be kept in the archive and tracked by LIMS a /file reference/ part
+should be included in the result summary, one for each file.  The
+schema for a file reference called =fileref= and is defined in
+automatically by the =lcatr.schema= module.  A compliant data
+structure suitable for adding to the result summary can be created
+with =lcatr.schema.fileref(path)= where the path is relative to the
+job's current working directory.

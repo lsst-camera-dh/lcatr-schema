@@ -1,69 +1,189 @@
 #!/usr/bin/env python
-'''
-LSST CCD Acceptance Testing Result (LCATR)
-==========================================
+"""
+Schema for result summaries
+"""
 
-This package provides the following:
+import os
+from glob import glob
+import json
 
- - Base classes for describing and documenting the schema for the FITS
-   Header Data Units (HDUs) and their collection in the form of an
-   HDUList.
+from collections import defaultdict
 
- - Specialized sets of subclasses.  One set is for a shared meta data
-   file and one each is for the specific results from each test
-   station or analysis.
+supported_types = { "int": int, "float":float, "str":str }
+reserved_keys = ('schema_version','schema_name')
 
- - Overriding of some elements of the ``pyfits`` module to provide for
-   hooks where validation code is run.  There is default validations
-   run in the base classes as well as validations specific to each
-   test restult.
+store = defaultdict(list)
 
- - Reference documentation of the LCATR-specific schema.
+def get(name, version = None):
+    """
+    Get a schema by name and optional version.  If version is None
+    return higest versioned schema unless name is a compliant
+    dictionary in which case get name and version from the schema_name
+    and schema_version items in name.
+    """
+    if isinstance(name,dict) and version is None:
+        data = name
+        name = data['schema_name']
+        version = data['schema_version']
 
- - Access to objects that are available under the plain ``pyfits``
-   module.
+    l = store[name]
+    if not l: return
+    if version is None: return l[-1]
+    for s in l:
+        if s['schema_version'] == version:
+            return s
+    return
 
-Each LCATR-specific schema provides a module which bundles the schema
-elements.  All LCATR tests must also provide information following the
-schema defined by ``lcatr.limsmeta``.  Each schema is available in a
-manner like:
 
-  >>> import lcatr
-  >>> nhdus = len(lcatr.limsmeta.schema)
-  >>> print 'There are %d HDUs defined for the meta data file' % nhuds
+def add(schema):
+    """
+    Add the schema to the store
+    """
+    # maintain order, if not efficiency
+    name = schema['schema_name']
+    version = schema['schema_version']
 
-The specific schema for each file describes and documents:
+    exist = get(name,version)
+    if exist:
+        if exist == schema:
+            return
+        raise ValueError,'Differing schema for %s/%d already exists'%(name,version)
 
- - Required HDUs in a file
+    lst = store[name]
+    lst.append(schema)
+    lst.sort(lambda a,b: cmp(a['schema_version'],b['schema_version']))
+    store[name] = lst
+    return
 
- - Required cards in an HDU's header
 
- - Required columns in an HDU's table unit.
+def loads(string):
+    lines = []
+    for line in string.split('\n'):
+        sline = line.strip()
+        if not sline: continue
+        if sline.startswith('#'): continue
+        lines.append(line)
+    if not lines:
+        return
+    string = '\n'.join(lines)
 
-Validation is performed by running an HDU's (or HDUList's)
-``validate()`` method.  For example:
+    try:
+        data = json.loads(string)
+    except ValueError:
+        data = None
+    else:
+        return data
+        
+    return eval(string)
 
-  >>> from lcatr.schema import PrimaryHDU
-  >>> p = PrimaryHDU()
-  >>> p.validate()
 
-A full schema for a file is built as a list (HDUlist) containing first
-a primary HDU and zero or more secondary HDU classes.  Instances can
-be created empty and later filled and writen to file or previously
-generated files can be read in for validation:
+def load(filename):
+    """
+    Load schema file
+    """
+    string = open(filename).read()
+    data = loads(string)
 
-  >>> import lcatr.schema as pyfits
-  >>> fp = pyfits.open("results.fits")
-  >>> fp.validate()
+    if not data:
+        print 'Failed to load "%s"' % filename
+        return
 
-the resulting HDUList returned by ``open()`` will contain instances of
-the ``lcatr`` schema HDU classes. A ValueError exception will be
-raised on failure.
+    if isinstance(data,dict):
+        data = [data]
 
-'''
+    def is_string(o):
+        return isinstance(o,str) or isinstance(o,unicode)
 
-import base
-import common
-import limsmeta
-import ptc
-import util
+    for d in data:
+        tosave = {}
+        for k,v in d.iteritems():
+            if not k in reserved_keys:
+                if is_string(v):
+                    v = supported_types[v]
+            tosave[k] = v
+        add(tosave)
+    return
+
+def load_all(path = None):
+    """
+    Load all .schema files found in the given <path> list.
+
+    If not <path> specified look for and use an LCATR_SCHEMA_PATH
+    environment variable.
+    """
+
+    if not path:
+        path = os.environ.get('LCATR_SCHEMA_PATH')
+    if path:
+        path = path.split(":")
+    else:
+        return
+
+    for directory in path:
+        for sfile in glob(os.path.join(directory,"*.schema")):
+            load(sfile)
+    return
+  
+def save(obj, filename, format = "JSON"):
+    """
+    Save <obj> to file named <filename> in given format ("JSON" by default)
+    """
+    if format == "Python":
+        s = str(obj)
+    else:
+        s = json.dumps(obj)
+    open(filename,'w').write(s)
+    return
+
+def valid(schema, **kwds):
+    """
+    Return a dictionary conforming to the given schema using data from
+    the keyword arguments which must provide values of conforming
+    type.  Any additional kwds are ignored.  If any of the keywords
+    are found in lcatr.schema.reserved_keys they will be checked
+    against the schema.  Any error raises ValueError.
+
+    Note, the returned schema is not added.  See lcatr.schema.add() for that.
+    """
+    ret = {n:schema[n] for n in reserved_keys}
+    for name, sval in schema.iteritems():
+        dval = kwds.get(name, None)
+
+        if name in reserved_keys: # skip or check if given
+            if dval is None: 
+                continue
+            if sval != dval:
+                raise ValueError,'Schema mismatch: %s differs: %s != %s' % \
+                    (name, sval, dval)
+            continue
+
+        if dval is None:
+            raise ValueError, 'Missing required keyword argument: "%s"' % name
+
+        dval = sval(dval)       # coerce given value into expected type
+
+        ret[name] = dval
+        continue
+    
+    return ret
+
+def write(data, filename = 'limssummary.json'):
+    """
+    Write the schema compliant data into the file.
+    """
+    if isinstance(data,dict):
+        data = [data]
+    towrite = []
+    for d in data:
+        s = get(d)
+        d = valid(s,**d)
+        towrite.append(d)
+
+    open(filename,'w').write(json.dumps(towrite, indent=2))
+
+def _on_load():
+    import fileref
+    for s in fileref.schema:
+        add(s)
+_on_load()
+

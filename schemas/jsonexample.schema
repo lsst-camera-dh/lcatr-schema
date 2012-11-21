@@ -1,0 +1,7 @@
+{ "schema_name": "average",
+  "schema_version": 1,
+  "count": "int",
+  "sum": "float",
+  "sum2": "float"
+}
+

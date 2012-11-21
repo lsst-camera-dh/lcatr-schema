@@ -1,0 +1,11 @@
+# -*- python -*-
+[
+    {
+        "schema_name": "average",
+        "schema_version": 0,
+        "mean": float,
+        "rms": float,
+        },
+    ]
+
+        
