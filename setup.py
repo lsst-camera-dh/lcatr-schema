@@ -2,7 +2,7 @@
 from glob import glob
 from distutils.core import setup
 setup(name='lcatr-schema',
-      version='0',
+      version='0.1',
       url='https://git.racf.bnl.gov/astro/cgit/lcatr/schema.git',
       author='Brett Viren',
       author_email='bv@bnl.gov',
