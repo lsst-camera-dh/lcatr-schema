@@ -53,6 +53,7 @@ def add(schema):
     lst.append(schema)
     lst.sort(lambda a,b: cmp(a['schema_version'],b['schema_version']))
     store[name] = lst
+    print 'Added schema "%s" version %d' % (name, version)
     return
 
 
@@ -145,6 +146,9 @@ def valid(schema, **kwds):
 
     Note, the returned schema is not added.  See lcatr.schema.add() for that.
     """
+    if not schema:
+        raise ValueError, 'Given empty schema along with: "%s' % str(kwds)
+
     ret = {n:schema[n] for n in reserved_keys}
     for name, sval in schema.iteritems():
         dval = kwds.get(name, None)
@@ -167,7 +171,26 @@ def valid(schema, **kwds):
     
     return ret
 
-def write(data, filename = 'limssummary.json'):
+def validate(data, strict = False):
+    """
+    Validate the given data structure against its schema.  If strict
+    is True require that all values be of the required type, otherwise
+    they must be merely convertable to the required type.
+    """
+    nam = data['schema_name']
+    ver = data['schema_version']
+
+    sch = get(nam,ver)
+    if not sch:
+        raise ValueError, 'No schema for "%s" version %s' % (nam, ver)
+    dat = valid(sch, **data)    # throws if data is not valid enough
+    if not strict: 
+        return True
+    if dat == data:
+        return True
+    raise ValueError, 'Data does not follow schema "%s" version %s' % (nam, ver)
+
+def write_file(data, filename = 'summary.lims'):
     """
     Write the schema compliant data into the file.
     """
@@ -176,14 +199,36 @@ def write(data, filename = 'limssummary.json'):
     towrite = []
     for d in data:
         s = get(d)
-        d = valid(s,**d)
+        d = valid(s,**d)        # be nice and allow coercion to correct types
         towrite.append(d)
 
     open(filename,'w').write(json.dumps(towrite, indent=2))
+
+
+def validate_file(filename = "summary.lims"):
+    """
+    Validate the given named file against known schema and return its
+    data or raise ValueError.
+    """
+    try:
+        fp = open(filename)
+    except IOError:
+        print 'In: %s' % os.getcwd()
+        raise
+    sdata = fp.read()
+    data = json.loads(sdata)
+    for count, chunk in enumerate(data):
+        try:
+            validate(chunk)
+        except ValueError:
+            print "Chunk %d not valid: %s" % (count, str(chunk))
+            raise
+    return data
 
 def _on_load():
     import fileref
     for s in fileref.schema:
         add(s)
+    load_all()
 _on_load()
 

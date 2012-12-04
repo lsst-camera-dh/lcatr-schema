@@ -54,7 +54,7 @@ to a database table row.
 
 * Defining a schema
 
-Both (part) schema and confirming data structure are represented in
+Both the schema and its conforming data structure are represented in
 Python as simple, flat dictionaries with the same keys.  Both are
 conceptually separated into two parts.  The first is the /schema
 identifier/ made up of items with the keys =schema_name= (value type
