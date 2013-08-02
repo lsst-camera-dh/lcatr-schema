@@ -40,3 +40,5 @@ pip-log.txt
 *.out
 *.snm
 *.fdb_latexmk
+test_*.json
+MANIFEST

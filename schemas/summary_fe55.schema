@@ -1,0 +1,25 @@
+# -*- python -*-
+[
+    dict( schema_name = "fe55_first_order",
+          schema_version = 0,
+          amp = int,
+          counts = int,
+          average = float,
+          noise_adu = float,
+          gain = float,
+          noise = float,
+          npix = float,
+          ),
+
+    dict( schema_name = "fe55_sextractor",
+          schema_version = 0,
+          amp = int,
+          Kafit_adu = float,
+          gain = float,
+          noise_adu = float,
+          noise_e = float,
+          sig_Ka = float,
+          npix = float,
+          difwid = float,
+          ),
+    ]

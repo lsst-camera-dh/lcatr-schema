@@ -53,7 +53,7 @@ def add(schema):
     lst.append(schema)
     lst.sort(lambda a,b: cmp(a['schema_version'],b['schema_version']))
     store[name] = lst
-    print 'Added schema "%s" version %d' % (name, version)
+    #print 'Added schema "%s" version %d' % (name, version)
     return
 
 
@@ -83,7 +83,11 @@ def load(filename):
     Load schema file
     """
     string = open(filename).read()
-    data = loads(string)
+    try:
+        data = loads(string)
+    except:
+        print 'Failed to load schema file: %s' % filename
+        raise
 
     if not data:
         print 'Failed to load "%s"' % filename
@@ -132,7 +136,7 @@ def save(obj, filename, format = "JSON"):
     if format == "Python":
         s = str(obj)
     else:
-        s = json.dumps(obj)
+        s = json.dumps(obj, indent=2)
     open(filename,'w').write(s)
     return
 
@@ -162,7 +166,7 @@ def valid(schema, **kwds):
             continue
 
         if dval is None:
-            raise ValueError, 'Missing required keyword argument: "%s"' % name
+            raise ValueError, 'Missing required keyword argument: "%s" for schema "%s/%d"' % (name, schema['schema_name'], schema['schema_version'])
 
         dval = sval(dval)       # coerce given value into expected type
 
@@ -220,7 +224,7 @@ def validate_file(filename = "summary.lims"):
     for count, chunk in enumerate(data):
         try:
             validate(chunk)
-        except ValueError:
+        except :
             print "Chunk %d not valid: %s" % (count, str(chunk))
             raise
     return data

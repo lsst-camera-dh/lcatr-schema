@@ -1,0 +1,27 @@
+# -*- python -*-
+[
+    dict( schema_name = "dark_gain",
+          schema_version = 0,
+          amp = int,
+          gain = float,
+          colhot = int,
+          hot_tot = int,
+          gt20 = int,
+          ),
+
+    dict( schema_name = "dark_current",
+          schema_version = 0,
+          amp = int,
+          darkcur = float,
+          av = float,
+          cl90tile = float,
+          cl99tile = float,
+          ),
+
+    dict( schema_name = "dark_defective_columns",
+          schema_version = 0,
+          amp = int,
+          column = int,
+          ),
+    ]
+

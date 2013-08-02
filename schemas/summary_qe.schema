@@ -1,0 +1,7 @@
+# -*- python -*-
+[
+    dict(schema_name="qe_analysis",
+         schema_version=0,
+         wavelength = float,
+         **{'amp%02dqe'%(i+1,):float for i in range(16)}),
+    ]
