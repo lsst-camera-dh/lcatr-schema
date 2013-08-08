@@ -54,7 +54,7 @@ class parse_dark(object):
         return schema_field_line('dark_gain', fields, line)
 
     def parse_darkcur(self, line):
-        fields = 'amp darkcur av cl90tile cl99tile'
+        fields = 'amp darkcur cl90tile cl99tile cl999tile'
         return schema_field_line('dark_current', fields, line)
         
         

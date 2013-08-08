@@ -13,9 +13,9 @@
           schema_version = 0,
           amp = int,
           darkcur = float,
-          av = float,
           cl90tile = float,
           cl99tile = float,
+          cl999tile = float,
           ),
 
     dict( schema_name = "dark_defective_columns",
