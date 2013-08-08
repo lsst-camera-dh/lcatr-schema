@@ -9,5 +9,5 @@ setup(name='lcatr-schema',
       author_email='bv@bnl.gov',
       package_dir = {'': 'python'},
       packages = ['lcatr','lcatr.schema'],
-      data_files = [('examples',glob('schemas/*.schema'))]
+      data_files = [('schemas',glob('schemas/*.schema'))]
       )
