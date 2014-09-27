@@ -38,6 +38,7 @@ if os.path.isfile(os.path.join(installedTop, '__init__.py')):
     if not update:
         print 'Some version of the package is already installed'
         print 'Delete or move away before attempting new install'
+        print 'or re-invoke with --update option'
         exit
     else:
         shutil.rmtree(installedTop)
