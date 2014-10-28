@@ -26,7 +26,7 @@ def make(path):
     """
     try:
         s = os.stat(path)
-    except OsError:
+    except OSError:
         raise ValueError, 'Can not stat "%s"' % path
     size = s.st_size
 
