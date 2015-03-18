@@ -9,6 +9,7 @@ schema = [
       "path": str,
       "sha1": str,
       "size": int,
+      "datatype": str,
       }]
 
 def sha1sum(path):
@@ -20,7 +21,7 @@ def sha1sum(path):
             sha1.update(chunk)
     return sha1.hexdigest()
     
-def make(path):
+def make(path, datatype="LSSTSENSORTEST"):
     """
     Return a valid file reference data structure or raise ValueError.
     """
@@ -32,4 +33,5 @@ def make(path):
 
     import lcatr.schema
     return lcatr.schema.valid(schema[-1], 
-                              path=path, size=size, sha1=sha1sum(path))
+                              path=path, datatype=datatype,size=size, 
+                              sha1=sha1sum(path))
