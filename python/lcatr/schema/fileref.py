@@ -2,6 +2,7 @@
 
 import os
 import hashlib
+import json
 
 schema = [
     { 'schema_name':'fileref',
@@ -39,5 +40,5 @@ def make(path, datatype="LSSTSENSORTEST", metadata=None):
     import lcatr.schema
     return lcatr.schema.valid(schema[-1], 
                               path=path, datatype=datatype, size=size, 
-                              metadata=str(metadata),
+                              metadata=json.dumps(metadata),
                               sha1=sha1sum(path))
