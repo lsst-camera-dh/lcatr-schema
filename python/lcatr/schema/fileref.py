@@ -29,11 +29,11 @@ def make(path, datatype="LSSTSENSORTEST", metadata=None):
     """
     try:
         s = os.stat(path)
-    except OSError:
-        raise ValueError, 'Can not stat "%s"' % path
+    except OSError as oserr:
+        raise ValueError('Can not stat "%s"' % path)
 
     if metadata is not None and type(metadata) != dict:
-        raise ValueError, 'fileref.make: metadata must be None or a dict object'
+        raise ValueError('fileref.make: metadata must be None or a dict object')
 
     size = s.st_size
 
