@@ -1,9 +1,14 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 import json
-from urllib import urlencode
-from urllib2 import urlopen
-
+import functools
+try:
+    from urllib.parse import urlencode
+    from urllib.request import urlopen
+except ImportError:
+    # python 2 backwards compatibility
+    from urllib import urlencode
+    from urllib2 import urlopen
 import os
 
 tests_dir = os.path.dirname(__file__)
@@ -20,10 +25,10 @@ type2str = {
     float: 'float',
 }
 str2type = dict(int=int,str=str,float=float)
-    
+
 def washed_schema():
     washed = []
-    for s in reduce(lambda x,y:x+y, schema.store.values()):
+    for s in functools.reduce(lambda x,y:x+y, schema.store.values()):
         s = dict(s)             # copy
         for k in s.keys():
             v = s[k]
@@ -40,7 +45,7 @@ def test_register():
     url = lims_url + 'register'
     fp = urlopen(url, data=qdata)
     page = fp.read()
-    print page
+    print(page)
 
 def test_all():
     jdata = json.dumps({})
@@ -49,10 +54,10 @@ def test_all():
     fp = urlopen(url,data=qdata)
     page = fp.read()
     jdata = json.loads(page)
-    print 'Got back %d schema:'%len(jdata)
+    print('Got back %d schema:'%len(jdata))
     for i,s in enumerate(sorted(jdata, key=lambda x:(x['schema_name'],x['schema_version']))):
-        print '#{i} v:{schema_version} {schema_name}'.format(i=i,**s)
-    
+        print('#{i} v:{schema_version} {schema_name}'.format(i=i,**s))
+
 def test_retrieve():
     for s in washed_schema():
         match = dict(name=s['schema_name'], version=s['schema_version'])
@@ -63,8 +68,7 @@ def test_retrieve():
         page = fp.read()
         jdata = json.loads(page)
         jdata.update(match)
-        print 'Match: {name}/{version} --> {schema_name}/{schema_version}'.format(**jdata)
-        
+        print('Match: {name}/{version} --> {schema_name}/{schema_version}'.format(**jdata))
 
 
 if '__main__' == __name__:

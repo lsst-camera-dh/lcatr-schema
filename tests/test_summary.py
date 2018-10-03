@@ -2,7 +2,7 @@
 '''
 Test the summary_*.schema files.
 '''
-
+from __future__ import print_function
 import os
 import testing_common as tc
 schema = tc.schema
@@ -72,7 +72,7 @@ def pick_parser(string):
         }
     for t,p in trigger.items():
         if string.startswith(t):
-            print 'Picking parser %s' % t
+            print('Picking parser %s' % t)
             return p
 
 def parse_file(filename):

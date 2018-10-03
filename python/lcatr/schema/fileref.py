@@ -22,7 +22,7 @@ def sha1sum(path):
         for chunk in iter(lambda: f.read(chunk_size), b''):
             sha1.update(chunk)
     return sha1.hexdigest()
-    
+
 def make(path, datatype="LSSTSENSORTEST", metadata=None):
     """
     Return a valid file reference data structure or raise ValueError.
@@ -37,8 +37,8 @@ def make(path, datatype="LSSTSENSORTEST", metadata=None):
 
     size = s.st_size
 
-    import lcatr.schema
-    return lcatr.schema.valid(schema[-1], 
-                              path=path, datatype=datatype, size=size, 
-                              metadata=json.dumps(metadata),
-                              sha1=sha1sum(path))
+    from . import valid
+    return valid(schema[-1],
+                 path=path, datatype=datatype, size=size,
+                 metadata=json.dumps(metadata),
+                 sha1=sha1sum(path))

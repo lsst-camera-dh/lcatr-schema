@@ -42,9 +42,8 @@ def test_make():
     try:
         fail = lcatr.schema.valid(s, count=3, sum=2, sum2="eight")
     except ValueError as msg:
-        if not "could not convert string to float: eight" in (msg):
-            raise
-    else:
+        if not "could not convert string to float: eight" in str(msg):
+            print('Received wrong error')
         raise
 
     try:
@@ -52,16 +51,13 @@ def test_make():
     except ValueError as msg:
         if not 'Missing required keyword argument: "sum2"' in str(msg):
             print('Received wrong error')
-            raise
-    else:
         raise
 
     try:
         fail = lcatr.schema.valid(s, count=3, sum=2, sum2=2, schema_version=42)
     except ValueError as msg:
         if not 'Schema mismatch: schema_version differs: 1 != 42' in str(msg):
-            raise
-    else:
+            print('Received wrong error')
         raise
 
 if __name__ == '__main__':

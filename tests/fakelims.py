@@ -6,7 +6,6 @@ This provides an HTTP server that tries mightly to pretend to be like
 the real LIMS web app.
 
 """
-
 import os
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import cgi
@@ -139,7 +138,7 @@ class FakeLimsHandler(BaseHTTPRequestHandler):
 
         pvars = self.postvars()
         chirp = 'CMD:"%s" POSTVARS:"%s"' % (base_cmd,pvars)
-        print chirp
+        print(chirp)
         logging.debug(chirp)
 
         required_params = set(api)
@@ -148,22 +147,22 @@ class FakeLimsHandler(BaseHTTPRequestHandler):
             logging.error(msg)
             self.set_error(msg)
             return
-        
+
         self.send_response(200)
         self.send_header('Content-type', 'text/json')
         self.end_headers()
 
         ret = lims_commands(base, cmd, **pvars)
-        print 'Lims returns:',str(ret)
+        print('Lims returns:',str(ret))
         logging.debug('RET:%s'%str(ret))
         try:
             jstr = json.dumps(ret)
-        except TypeError,msg:
-            print 'Failed to dump to json for return from %s(%s)' % (base_cmd,str(pvars))
+        except TypeError as msg:
+            print('Failed to dump to json for return from %s(%s)' % (base_cmd,str(pvars)))
             raise
         self.wfile.write(jstr + '\n')
         return
-        
+
     def set_error(self, msg):
         # use 412 for prereq not satisfied
         self.send_response(400)
@@ -177,10 +176,10 @@ class FakeLimsHandler(BaseHTTPRequestHandler):
 def main():
     try:
         server = HTTPServer(('', 9876), FakeLimsHandler)
-        print 'started httpserver...'
+        print('started httpserver...')
         server.serve_forever()
     except KeyboardInterrupt:
-        print '^C received, shutting down server'
+        print('^C received, shutting down server')
         server.socket.close()
 if __name__ == '__main__':
     main()
