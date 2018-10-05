@@ -39,6 +39,7 @@ pip-log.txt
 *.nav
 *.out
 *.snm
+*.py.bak
 *.fdb_latexmk
 test_*.json
 MANIFEST

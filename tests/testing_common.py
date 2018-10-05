@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 import os, sys
 test_dir = os.path.dirname(os.path.realpath(__file__))
@@ -9,4 +10,6 @@ os.environ.setdefault('LCATR_SCHEMA_PATH', os.path.join(top_dir,'schemas'))
 
 import schema
 schema.load_all()
+
+print("Successful run of testing_common")
 

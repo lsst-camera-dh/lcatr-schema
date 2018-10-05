@@ -2,7 +2,7 @@
 """
 Schema for result summaries
 """
-
+from __future__ import print_function
 import os
 from glob import glob
 import json
@@ -47,13 +47,13 @@ def add(schema):
     if exist:
         if exist == schema:
             return
-        raise ValueError,'Differing schema for %s/%d already exists'%(name,version)
+        raise ValueError('Differing schema for %s/%d already exists'%(name,version))
 
     lst = store[name]
     lst.append(schema)
-    lst.sort(lambda a,b: cmp(a['schema_version'],b['schema_version']))
+    lst.sort(key=lambda a: a['schema_version'])
     store[name] = lst
-    #print 'Added schema "%s" version %d' % (name, version)
+    #print('Added schema "%s" version %d' % (name, version))
     return
 
 
@@ -74,7 +74,7 @@ def loads(string):
         data = None
     else:
         return data
-        
+
     return eval(string)
 
 
@@ -86,22 +86,22 @@ def load(filename):
     try:
         data = loads(string)
     except:
-        print 'Failed to load schema file: %s' % filename
+        print('Failed to load schema file: %s' % filename)
         raise
 
     if not data:
-        print 'Failed to load "%s"' % filename
+        print('Failed to load "%s"' % filename)
         return
 
     if isinstance(data,dict):
         data = [data]
 
     def is_string(o):
-        return isinstance(o,str) or isinstance(o,unicode)
+        return isinstance(o,str)
 
     for d in data:
         tosave = {}
-        for k,v in d.iteritems():
+        for k,v in d.items():
             if not k in reserved_keys:
                 if is_string(v):
                     v = supported_types[v]
@@ -128,7 +128,7 @@ def load_all(path = None):
         for sfile in glob(os.path.join(directory,"*.schema")):
             load(sfile)
     return
-  
+
 def save(obj, filename, format = "JSON"):
     """
     Save <obj> to file named <filename> in given format ("JSON" by default)
@@ -151,22 +151,22 @@ def valid(schema, **kwds):
     Note, the returned schema is not added.  See lcatr.schema.add() for that.
     """
     if not schema:
-        raise ValueError, 'Given empty schema along with: "%s' % str(kwds)
+        raise ValueError('Given empty schema along with: "%s' % str(kwds))
 
     ret = {n:schema[n] for n in reserved_keys}
-    for name, sval in schema.iteritems():
+    for name, sval in schema.items():
         dval = kwds.get(name, None)
 
         if name in reserved_keys: # skip or check if given
-            if dval is None: 
+            if dval is None:
                 continue
             if sval != dval:
-                raise ValueError,'Schema mismatch: %s differs: %s != %s' % \
-                    (name, sval, dval)
+                raise ValueError('Schema mismatch: %s differs: %s != %s' %
+                                 (name, sval, dval))
             continue
 
         if dval is None:
-            raise ValueError, 'Missing required keyword argument: "%s" for schema "%s/%d"' % (name, schema['schema_name'], schema['schema_version'])
+            raise ValueError('Missing required keyword argument: "%s" for schema "%s/%d"' % (name, schema['schema_name'], schema['schema_version']))
 
         dval = sval(dval)       # coerce given value into expected type
 
@@ -186,13 +186,13 @@ def validate(data, strict = False):
 
     sch = get(nam,ver)
     if not sch:
-        raise ValueError, 'No schema for "%s" version %s' % (nam, ver)
+        raise ValueError('No schema for "%s" version %s' % (nam, ver))
     dat = valid(sch, **data)    # throws if data is not valid enough
-    if not strict: 
+    if not strict:
         return True
     if dat == data:
         return True
-    raise ValueError, 'Data does not follow schema "%s" version %s' % (nam, ver)
+    raise ValueError('Data does not follow schema "%s" version %s' % (nam, ver))
 
 def write_file(data, filename = 'summary.lims'):
     """
@@ -217,7 +217,7 @@ def validate_file(filename = "summary.lims"):
     try:
         fp = open(filename)
     except IOError:
-        print 'In: %s' % os.getcwd()
+        print('In: %s' % os.getcwd())
         raise
     sdata = fp.read()
     data = json.loads(sdata)
@@ -225,13 +225,13 @@ def validate_file(filename = "summary.lims"):
         try:
             validate(chunk)
         except :
-            print "Chunk %d not valid: %s" % (count, str(chunk))
+            print("Chunk %d not valid: %s" % (count, str(chunk)))
             raise
     return data
 
 def _on_load():
-    import fileref
-    for s in fileref.schema:
+    from .fileref import schema
+    for s in schema:
         add(s)
     load_all()
 _on_load()
