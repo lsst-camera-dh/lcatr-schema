@@ -23,7 +23,8 @@ def sha1sum(path):
             sha1.update(chunk)
     return sha1.hexdigest()
 
-def make(path, datatype="LSSTSENSORTEST", metadata=None):
+def make(path, datatype="LSSTSENSORTEST", metadata=None,
+         fakesha1='ABADCAFE0ABADCAFE'):
     """
     Return a valid file reference data structure or raise ValueError.
     """
@@ -36,9 +37,12 @@ def make(path, datatype="LSSTSENSORTEST", metadata=None):
         raise ValueError('fileref.make: metadata must be None or a dict object')
 
     size = s.st_size
+    sha = fakesha1
+    if fakesha1 == None:
+        sha = sha1sum(path) 
 
     from . import valid
     return valid(schema[-1],
                  path=path, datatype=datatype, size=size,
                  metadata=json.dumps(metadata),
-                 sha1=sha1sum(path))
+                 sha1=sha)
